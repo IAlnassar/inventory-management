@@ -1,17 +1,9 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { Box, Stack, Typography, Button, Modal, TextField } from '@mui/material'
-import { firestore } from '@/firebase'
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  deleteDoc,
-  getDoc,
-} from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext';
+import { useState, useEffect } from 'react';
+import { firestore } from '../lib/firebase';
+import { Box, Stack, Typography, Button, Modal, TextField } from '@mui/material';
+import { collection, doc, getDocs, query, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { useRouter } from 'next/router';
 
 const style = {
   position: 'absolute',
@@ -26,59 +18,64 @@ const style = {
   display: 'flex',
   flexDirection: 'column',
   gap: 3,
-}
-
-  
+};
 
 export default function Home() {
-  // We'll add our component logic here
-  const [inventory, setInventory] = useState<any[]>([])
-  const [open, setOpen] = useState(false)
-  const [itemName, setItemName] = useState('')
+  const { currentUser, logout } = useAuth();
+  const router = useRouter();
 
-  const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [itemName, setItemName] = useState('');
+
+  useEffect(() => {
+    if (currentUser) {
+      updateInventory();
+    } else {
+      router.push('/login');
+    }
+  }, [currentUser, router]);
+
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
 
   const updateInventory = async () => {
-    const snapshot = query(collection(firestore, 'inventory'))
-    const docs = await getDocs(snapshot)
-    const inventoryList: any[] = []
+    const snapshot = query(collection(firestore, 'inventory'));
+    const docs = await getDocs(snapshot);
+    const inventoryList: any[] = [];
     docs.forEach((doc) => {
-      inventoryList.push({ name: doc.id, ...doc.data() })
-    })
-    setInventory(inventoryList)
-}
-  
-  useEffect(() => {
-  updateInventory()
-  }, [])
-
+      inventoryList.push({ name: doc.id, ...doc.data() });
+    });
+    setInventory(inventoryList);
+  };
 
   const addItem = async (item: any) => {
-      const docRef = doc(collection(firestore, 'inventory'), item)
-      const docSnap = await getDoc(docRef)
-      if (docSnap.exists()) {
-        const { quantity } = docSnap.data()
-        await setDoc(docRef, { quantity: quantity + 1 })
-      } else {
-        await setDoc(docRef, { quantity: 1 })
-      }
-      await updateInventory()
-  }
-    
+    const docRef = doc(collection(firestore, 'inventory'), item);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      await setDoc(docRef, { quantity: quantity + 1 });
+    } else {
+      await setDoc(docRef, { quantity: 1 });
+    }
+    await updateInventory();
+  };
+
   const removeItem = async (item: any) => {
-      const docRef = doc(collection(firestore, 'inventory'), item)
-      const docSnap = await getDoc(docRef)
-      if (docSnap.exists()) {
-        const { quantity } = docSnap.data()
-        if (quantity === 1) {
-          await deleteDoc(docRef)
-        } else {
-          await setDoc(docRef, { quantity: quantity - 1 })
-        }
+    const docRef = doc(collection(firestore, 'inventory'), item);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      if (quantity === 1) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, { quantity: quantity - 1 });
       }
-      await updateInventory()
-  }
+    }
+    await updateInventory();
+  };
+
+  if (!currentUser) return <div>Loading...</div>; // Display a loading state if not authenticated yet
 
   return (
     <Box
@@ -90,6 +87,8 @@ export default function Home() {
       alignItems={'center'}
       gap={2}
     >
+      <Typography variant="h1">Inventory Management</Typography>
+      <Button variant="contained" onClick={logout}>Logout</Button>
       <Modal
         open={open}
         onClose={handleClose}
@@ -112,9 +111,9 @@ export default function Home() {
             <Button
               variant="outlined"
               onClick={() => {
-                addItem(itemName)
-                setItemName('')
-                handleClose()
+                addItem(itemName);
+                setItemName('');
+                handleClose();
               }}
             >
               Add
@@ -139,7 +138,7 @@ export default function Home() {
           </Typography>
         </Box>
         <Stack width="800px" height="300px" spacing={2} overflow={'auto'}>
-          {inventory.map(({name, quantity}) => (
+          {inventory.map(({ name, quantity }) => (
             <Box
               key={name}
               width="100%"
@@ -164,5 +163,5 @@ export default function Home() {
         </Stack>
       </Box>
     </Box>
-  )
+  );
 }
